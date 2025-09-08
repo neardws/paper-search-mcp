@@ -4,7 +4,18 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
-from ..paper import Paper
+import sys
+import os
+
+# Add the parent directory to the path to allow imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from paper_search_mcp.paper import Paper
+except ImportError:
+    # Fallback for direct execution
+    from paper import Paper
+
 import logging
 from PyPDF2 import PdfReader
 import os
@@ -53,10 +64,12 @@ class SemanticSearcher(PaperSource):
 
     def _parse_date(self, date_str: str) -> Optional[datetime]:
         """Parse date from Semantic Scholar format (e.g., '2025-06-02')"""
+        if not date_str:
+            return None
         try:
             return datetime.strptime(date_str.strip(), "%Y-%m-%d")
-        except ValueError:
-            logger.warning(f"Could not parse date: {date_str}")
+        except (ValueError, AttributeError) as e:
+            logger.warning(f"Could not parse date: {date_str}, error: {e}")
             return None
 
     def _extract_url_from_disclaimer(self, disclaimer: str) -> str:
@@ -203,7 +216,7 @@ class SemanticSearcher(PaperSource):
         
         return {"error": "max_retries_exceeded", "message": "Maximum retry attempts exceeded"}
 
-    def search(self, query: str, year: Optional[str] = None, max_results: int = 10) -> List[Paper]:
+    def search(self, query: str, year: Optional[str] = None, max_results: int = 10, sort: str = "relevance") -> List[Paper]:
         """
         Search Semantic Scholar
 
@@ -215,6 +228,7 @@ class SemanticSearcher(PaperSource):
             - Since year: "2010-"
             - Until year: "-2015"
             max_results: Maximum number of results to return
+            sort: Sort order - "relevance", "citationCount", "publicationDate"
 
         Returns:
             List[Paper]: List of paper objects
@@ -228,6 +242,7 @@ class SemanticSearcher(PaperSource):
                 "query": query,
                 "limit": max_results,
                 "fields": ",".join(fields),
+                "sort": sort,  # Add sort parameter
             }
             if year:
                 params["year"] = year
@@ -445,8 +460,8 @@ if __name__ == "__main__":
     searcher = SemanticSearcher()
 
     print("Testing Semantic search functionality...")
-    query = "secret sharing"
-    max_results = 2
+    query = "LLM Edge"  # Changed from "LLM+edge" to match web version
+    max_results = 10
 
     print("\n" + "=" * 60)
     print("1. Testing search with detailed information")
